@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saved Match Data</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a; /* Darker background */
+            color: #f0f0f0; /* Lighter text */
+            text-align: center;
+            margin: 0;
+            padding: 30px; /* Increased padding */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #5cb85c; /* Greenish title */
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        table {
+            width: 80%; /* Wider table */
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+            background-color: #222; /* Dark table background */
+            border-radius: 8px; /* Rounded corners for table */
+            overflow: hidden; /* Ensures rounded corners work with borders */
+        }
+        th, td {
+            border: 1px solid #444; /* Darker border */
+            padding: 15px; /* Increased padding */
+            text-align: left;
+            font-size: 1.1em;
+        }
+        th {
+            background-color: #5cb85c; /* Green header */
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        tr:nth-child(even) {
+            background-color: #333; /* Slightly lighter row background */
+        }
+        tr:hover {
+            background-color: #444; /* Hover effect */
+        }
+        button {
+            background-color: #d9534f; /* Red for primary action buttons */
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            margin: 10px;
+            font-size: 1.1em;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* Smooth transition */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        button:hover {
+            background-color: #c9302c;
+        }
+        .back-button {
+            background-color: #5bc0de; /* Blue for back button */
+        }
+        .back-button:hover {
+            background-color: #46b8da;
+        }
+        .button-container {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px; /* Space between buttons */
+        }
+        p {
+            font-size: 1.2em;
+            margin-top: 20px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Saved Match Data</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>SI No</th>
+                <th>Match Number</th>
+                <th>Left Team</th>
+                <th>Right Team</th>
+                <th>Left Score</th>
+                <th>Right Score</th>
+            </tr>
+        </thead>
+        <tbody id="matches-table-body">
+            </tbody>
+    </table>
+    <div class="button-container">
+        <button id="clear-all-btn">Clear All Data</button>
+        <button id="back-btn" class="back-button">Back</button>
+    </div>
+    <p id="no-data-message" style="display:none;">No saved match data found.</p>
+
+    <script>
+        function loadSavedData() {
+            const savedDataArray = localStorage.getItem('matchDataArray');
+            const tableBody = document.getElementById('matches-table-body');
+            const noDataMessage = document.getElementById('no-data-message');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            if (!savedDataArray) {
+                noDataMessage.style.display = 'block';
+                return;
+            }
+
+            const dataArray = JSON.parse(savedDataArray);
+
+            if (dataArray.length === 0) {
+                noDataMessage.style.display = 'block';
+                return;
+            } else {
+                noDataMessage.style.display = 'none';
+            }
+
+            dataArray.forEach((data, index) => {
+                const row = document.createElement('tr');
+
+                const cellIndex = document.createElement('td');
+                cellIndex.textContent = index + 1;
+                row.appendChild(cellIndex);
+
+                const cellMatchNumber = document.createElement('td');
+                cellMatchNumber.textContent = data.matchNumber || '';
+                row.appendChild(cellMatchNumber);
+
+                const cellLeftName = document.createElement('td');
+                cellLeftName.textContent = data.leftName || 'Team A'; // More descriptive
+                row.appendChild(cellLeftName);
+
+                const cellRightName = document.createElement('td');
+                cellRightName.textContent = data.rightName || 'Team B'; // More descriptive
+                row.appendChild(cellRightName);
+
+                const cellLeftCount = document.createElement('td');
+                cellLeftCount.textContent = data.leftCount || '0';
+                row.appendChild(cellLeftCount);
+
+                const cellRightCount = document.createElement('td');
+                cellRightCount.textContent = data.rightCount || '0';
+                row.appendChild(cellRightCount);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        document.getElementById('back-btn').addEventListener('click', () => {
+            window.close();
+        });
+
+        document.getElementById('clear-all-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to CLEAR ALL saved match data? This action cannot be undone.')) {
+                localStorage.removeItem('matchDataArray');
+                const tableBody = document.getElementById('matches-table-body');
+                tableBody.innerHTML = ''; // Clear the table in the current window
+                const noDataMessage = document.getElementById('no-data-message');
+                noDataMessage.style.display = 'block'; // Show no data message
+                alert('All saved match data has been cleared.');
+            }
+        });
+
+        window.onload = loadSavedData;
+    </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MediaPipe Tracking</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #video-feed {
+            border: 3px solid #4CAF50;
+            border-radius: 8px;
+            max-width: 90vw;
+            height: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            margin: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        a.logout {
+            color: #f44336;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+            display: inline-block;
+        }
+        a.logout:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Kabaddi Scorecard Automation</h1>
+    <div>
+        <button id="start-btn">Start</button>
+        <button id="stop-btn">Stop</button>
+        <span id="timer-display" style="margin-left: 20px; font-size: 48px; font-weight: bold; color: #4CAF50; width: 80px; height: 80px; display: inline-flex; align-items: center; justify-content: center; border: 3px solid #4CAF50; border-radius: 12px; user-select: none;">30</span>
+        <button id="start-timer-btn" style="margin-left: 10px;">Start Timer</button>
+        <button id="reset-timer-btn" style="margin-left: 10px;">Reset Timer</button>
+    </div>
+    <div>
+        <img id="video-feed" src="" alt="Video Feed will appear here" />
+    </div>
+
+    <div style="display: flex; justify-content: center; margin-top: 20px; flex-direction: column; align-items: center;">
+        <div style="margin-bottom: 15px;">
+            <label for="left-name-input" style="margin-right: 10px; font-weight: bold;">Left Name:</label>
+            <input type="text" id="left-name-input" value="Left" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; width: 150px;" />
+            <label for="right-name-input" style="margin-left: 30px; margin-right: 10px; font-weight: bold;">Right Name:</label>
+            <input type="text" id="right-name-input" value="Right" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; width: 150px;" />
+            <label for="match-name-input" style="margin-left: 30px; margin-right: 10px; font-weight: bold;">Match Number:</label>
+            <input type="number" id="match-name-input" placeholder="Enter match number" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; width: 200px;" />
+        </div>
+        <div style="display: flex; justify-content: center;">
+            <table border="1" cellpadding="10" style="margin-right: 50px;">
+                <caption><strong id="left-caption">Left</strong></caption>
+                <tr><th>Count</th></tr>
+                <tr><td id="left-count">0</td></tr>
+            </table>
+            <table border="1" cellpadding="10">
+                <caption><strong id="right-caption">Right</strong></caption>
+                <tr><th>Count</th></tr>
+                <tr><td id="right-count">0</td></tr>
+            </table>
+        </div>
+        <div style="margin-top: 10px;">
+            <button id="decrement-left-btn">Decrement Left</button>
+            <button id="decrement-right-btn">Decrement Right</button>
+            <button id="save-btn" style="margin-left: 20px;">Save</button>
+            <button id="open-btn" style="margin-left: 10px;">Open</button>
+        </div>
+    </div>
+
+    <div>
+        <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const videoFeed = document.getElementById('video-feed');
+        const leftCountElem = document.getElementById('left-count');
+        const rightCountElem = document.getElementById('right-count');
+        const decrementLeftBtn = document.getElementById('decrement-left-btn');
+        const decrementRightBtn = document.getElementById('decrement-right-btn');
+
+        let leftCount = 0;
+        let rightCount = 0;
+        let pollingInterval = null;
+
+        // Variables to track continuous detection
+        let lastLabel = null;
+        let detectionStartTime = null;
+        const detectionThreshold = 2000; // 2 seconds in milliseconds
+        let incrementedForCurrentDetection = false;
+
+        startBtn.addEventListener('click', () => {
+            fetch('/start').then(() => {
+                videoFeed.src = '/video_feed';
+                // Start polling for label updates
+                if (!pollingInterval) {
+                    pollingInterval = setInterval(fetchLabel, 500);
+                }
+            });
+        });
+
+        stopBtn.addEventListener('click', () => {
+            fetch('/stop').then(() => {
+                videoFeed.src = '';
+                // Stop polling for label updates
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+                // Reset detection tracking variables
+                lastLabel = null;
+                detectionStartTime = null;
+                incrementedForCurrentDetection = false;
+            });
+        });
+
+        decrementLeftBtn.addEventListener('click', () => {
+            if (leftCount > 0) {
+                leftCount--;
+                leftCountElem.textContent = leftCount;
+            }
+        });
+
+        decrementRightBtn.addEventListener('click', () => {
+            if (rightCount > 0) {
+                rightCount--;
+                rightCountElem.textContent = rightCount;
+            }
+        });
+
+        function fetchLabel() {
+            fetch('/current_label')
+                .then(response => response.json())
+                .then(data => {
+                    const currentLabel = data.label;
+                    const now = Date.now();
+
+                    if (currentLabel === 'left1' || currentLabel === 'right1' || currentLabel === 'left2' || currentLabel === 'right2' || currentLabel === 'left3' || currentLabel === 'right3' || currentLabel === 'left4' || currentLabel === 'right4' || currentLabel === 'left5' || currentLabel === 'right5' || currentLabel === 'leftbonus' || currentLabel === 'rightbonus') {
+                        if (currentLabel === lastLabel) {
+                            // Same label as before, check duration
+                            if (!incrementedForCurrentDetection) {
+                                if (detectionStartTime && (now - detectionStartTime >= detectionThreshold)) {
+                                    if (currentLabel === 'left1') {
+                                        leftCount++;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'right1') {
+                                        rightCount++;
+                                        rightCountElem.textContent = rightCount;
+                                    } else if (currentLabel === 'left2') {
+                                        leftCount += 2;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'right2') {
+                                        rightCount += 2;
+                                        rightCountElem.textContent = rightCount;
+                                    } else if (currentLabel === 'left3') {
+                                        leftCount += 3;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'right3') {
+                                        rightCount += 3;
+                                        rightCountElem.textContent = rightCount;
+                                    } else if (currentLabel === 'left4') {
+                                        leftCount += 4;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'right4') {
+                                        rightCount += 4;
+                                        rightCountElem.textContent = rightCount;
+                                    } else if (currentLabel === 'left5') {
+                                        leftCount += 5;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'right5') {
+                                        rightCount += 5;
+                                        rightCountElem.textContent = rightCount;
+                                    } else if (currentLabel === 'leftbonus') {
+                                        leftCount++;
+                                        leftCountElem.textContent = leftCount;
+                                    } else if (currentLabel === 'rightbonus') {
+                                        rightCount++;
+                                        rightCountElem.textContent = rightCount;
+                                    }
+                                    incrementedForCurrentDetection = true;
+                                }
+                            }
+                        } else {
+                            // New label detected, reset timer
+                            lastLabel = currentLabel;
+                            detectionStartTime = now;
+                            incrementedForCurrentDetection = false;
+                        }
+                    } else {
+                        // Label is not left1, right1, left2, right2, left3, right3, left4, right4, left5, right5, leftbonus, or rightbonus, reset tracking
+                        lastLabel = null;
+                        detectionStartTime = null;
+                        incrementedForCurrentDetection = false;
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching label:', err);
+                });
+        }
+    </script>
+    <script>
+        // Timer variables
+        const timerDisplay = document.getElementById('timer-display');
+        const startTimerBtn = document.getElementById('start-timer-btn');
+        const resetTimerBtn = document.getElementById('reset-timer-btn');
+
+        let timerValue = 30;
+        let timerInterval = null;
+
+        function updateTimerDisplay() {
+            timerDisplay.textContent = timerValue;
+        }
+
+        startTimerBtn.addEventListener('click', () => {
+            if (timerInterval === null) {
+                timerInterval = setInterval(() => {
+                    if (timerValue > 0) {
+                        timerValue--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                }, 1000);
+            }
+        });
+
+        resetTimerBtn.addEventListener('click', () => {
+            timerValue = 30;
+            updateTimerDisplay();
+            if (timerInterval !== null) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        });
+
+        updateTimerDisplay();
+    </script>
+    <script>
+        // Save and Open button functionality
+        const saveBtn = document.getElementById('save-btn');
+        const openBtn = document.getElementById('open-btn');
+
+        saveBtn.addEventListener('click', () => {
+            const matchNumber = document.getElementById('match-name-input').value;
+            const leftName = document.getElementById('left-name-input').value;
+            const rightName = document.getElementById('right-name-input').value;
+            const leftCount = parseInt(document.getElementById('left-count').textContent, 10) || 0;
+            const rightCount = parseInt(document.getElementById('right-count').textContent, 10) || 0;
+
+            // Retrieve existing matches array or initialize empty
+            let matches = JSON.parse(localStorage.getItem('matchDataArray')) || [];
+            console.log('Existing matches:', matches);
+
+            // Create new match object
+            const newMatch = {
+                matchNumber,
+                leftName,
+                rightName,
+                leftCount,
+                rightCount
+            };
+            console.log('New match to save:', newMatch);
+
+            // Append new match to array
+            matches.push(newMatch);
+
+            // Save updated array back to localStorage
+            localStorage.setItem('matchDataArray', JSON.stringify(matches));
+            console.log('Updated matches saved:', matches);
+
+            alert('Match data saved successfully!');
+
+            // Reset inputs and counts
+            document.getElementById('match-name-input').value = '';
+            document.getElementById('left-name-input').value = 'Left';
+            document.getElementById('right-name-input').value = 'Right';
+            leftCountElem.textContent = '0';
+            rightCountElem.textContent = '0';
+        });
+
+        openBtn.addEventListener('click', () => {
+            window.open('/saved_data', '_blank');
+        });
+    </script>
+</body>
+</html>
+
