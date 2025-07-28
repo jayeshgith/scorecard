@@ -1,6 +1,6 @@
 # Kabaddi Scorecard Automation
 
-This is a project I built to automate Kabaddi scoring using hand gesture detection. It uses a webcam to track the players' gestures in real-time, and based on the gesture shown, the score is updated automatically.
+This is a project I built to automate Kabaddi scoring using hand gesture detection. It uses a webcam to track the umpairs' gestures in real-time, and based on the gesture shown, the score is updated automatically.
 
 I used Python with Flask for the backend, and HTML, CSS, and JavaScript for the frontend. MediaPipe is used to detect the hand and elbow positions from the video stream.
 
